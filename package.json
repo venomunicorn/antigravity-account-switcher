@@ -1,0 +1,65 @@
+{
+  "name": "antigravity-account-switcher",
+  "displayName": "Antigravity Account Switcher",
+  "description": "Switch between multiple Google accounts in Antigravity to bypass model rate limits",
+  "version": "2.0.0",
+  "publisher": "local",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "extensionKind": [
+    "ui",
+    "workspace"
+  ],
+  "activationEvents": [
+    "*"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "antigravity-switcher.saveProfile",
+        "title": "Antigravity: Save Current Profile"
+      },
+      {
+        "command": "antigravity-switcher.switchProfile",
+        "title": "Antigravity: Switch Profile"
+      },
+      {
+        "command": "antigravity-switcher.deleteProfile",
+        "title": "Antigravity: Delete Profile"
+      },
+      {
+        "command": "antigravity-switcher.listProfiles",
+        "title": "Antigravity: List Profiles"
+      }
+    ],
+    "configuration": {
+      "title": "Antigravity Account Switcher",
+      "properties": {
+        "antigravitySwitcher.maxProfiles": {
+          "type": "number",
+          "default": 5,
+          "minimum": 1,
+          "maximum": 10,
+          "description": "Maximum number of profiles allowed"
+        },
+        "antigravitySwitcher.profilesDirectory": {
+          "type": "string",
+          "default": "",
+          "description": "Custom directory to store profiles (leave empty for default)"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "test": "node ./test/runTest.js"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0"
+  }
+}
