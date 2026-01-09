@@ -20,6 +20,7 @@ function activate(context) {
 
     const scriptPath = path.join(context.extensionPath, 'scripts', 'profile_manager.ps1');
     const NUM_SLOTS = 5;
+    const ACTIVE_PROFILE_KEY = 'antigravity.activeProfile';
 
     // Colorful slot colors
     const SLOT_COLORS = [
@@ -231,11 +232,22 @@ function activate(context) {
 
             if (profile) {
                 const name = profile.Name || profile.name;
-                // Profile exists - show name with color
-                btn.text = `$(account) ${name}`;
-                btn.tooltip = `Click to switch to "${name}"`;
-                btn.color = color;
-                btn.backgroundColor = undefined;
+                const activeProfile = context.globalState.get(ACTIVE_PROFILE_KEY);
+                const isActive = activeProfile && activeProfile.toLowerCase() === name.toLowerCase();
+
+                if (isActive) {
+                    // Active profile - show with checkmark and highlight
+                    btn.text = `$(check) ${name}`;
+                    btn.tooltip = `"${name}" is currently active`;
+                    btn.color = '#FFFFFF';
+                    btn.backgroundColor = new vscode.ThemeColor('statusBarItem.prominentBackground');
+                } else {
+                    // Inactive profile - show name with color
+                    btn.text = `$(account) ${name}`;
+                    btn.tooltip = `Click to switch to "${name}"`;
+                    btn.color = color;
+                    btn.backgroundColor = undefined;
+                }
             } else {
                 // Empty slot - grayed out
                 btn.text = `$(circle-slash) ${slotNum}`;
@@ -258,13 +270,24 @@ function activate(context) {
             const profile = profiles[slotNum];
 
             if (profile) {
-                // Switch to this profile (one-click, no confirmation)
                 const profileName = profile.Name || profile.name;
+                const activeProfile = context.globalState.get(ACTIVE_PROFILE_KEY);
+
+                // Check if this is already the active profile
+                if (activeProfile && activeProfile.toLowerCase() === profileName.toLowerCase()) {
+                    vscode.window.showInformationMessage(`"${profileName}" is already the active profile.`);
+                    return;
+                }
+
+                // Switch to this profile (one-click, no confirmation)
                 vscode.window.withProgress({
                     location: vscode.ProgressLocation.Notification,
                     title: `Switching to "${profileName}"...`,
                     cancellable: false
                 }, async () => {
+                    // Save the profile name before switching
+                    await context.globalState.update(ACTIVE_PROFILE_KEY, profileName);
+
                     const result = await runProfileManager('Load', profileName);
                     if (!result.success) {
                         vscode.window.showErrorMessage(`Failed to switch: ${result.error}`);
