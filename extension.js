@@ -16,11 +16,44 @@ const fs = require('fs');
  * @param {vscode.ExtensionContext} context
  */
 function activate(context) {
-    console.log('Antigravity Account Switcher v2.0.0 is now active');
+    console.log('Antigravity Account Switcher v2.1.3 is now active');
 
     const scriptPath = path.join(context.extensionPath, 'scripts', 'profile_manager.ps1');
     const NUM_SLOTS = 5;
-    const ACTIVE_PROFILE_KEY = 'antigravity.activeProfile';
+
+    // File to store active profile (shared across all profiles)
+    const ACTIVE_PROFILE_FILE = path.join(process.env.APPDATA || '', 'Antigravity', 'active_profile.txt');
+
+    /**
+     * Get the currently active profile name from shared file
+     */
+    function getActiveProfile() {
+        try {
+            if (fs.existsSync(ACTIVE_PROFILE_FILE)) {
+                return fs.readFileSync(ACTIVE_PROFILE_FILE, 'utf8').trim();
+            }
+        } catch (e) {
+            console.error('Error reading active profile:', e);
+        }
+        return null;
+    }
+
+    /**
+     * Set the active profile name in shared file
+     */
+    function setActiveProfile(profileName) {
+        try {
+            const dir = path.dirname(ACTIVE_PROFILE_FILE);
+            if (!fs.existsSync(dir)) {
+                fs.mkdirSync(dir, { recursive: true });
+            }
+            fs.writeFileSync(ACTIVE_PROFILE_FILE, profileName, 'utf8');
+            return true;
+        } catch (e) {
+            console.error('Error saving active profile:', e);
+            return false;
+        }
+    }
 
     // Colorful slot colors
     const SLOT_COLORS = [
@@ -232,8 +265,8 @@ function activate(context) {
 
             if (profile) {
                 const name = profile.Name || profile.name;
-                const activeProfile = context.globalState.get(ACTIVE_PROFILE_KEY);
-                const isActive = activeProfile && activeProfile.toLowerCase() === name.toLowerCase();
+                const activeProfileName = getActiveProfile();
+                const isActive = activeProfileName && activeProfileName.toLowerCase() === name.toLowerCase();
 
                 if (isActive) {
                     // Active profile - show with checkmark and highlight
@@ -271,10 +304,10 @@ function activate(context) {
 
             if (profile) {
                 const profileName = profile.Name || profile.name;
-                const activeProfile = context.globalState.get(ACTIVE_PROFILE_KEY);
+                const activeProfileName = getActiveProfile();
 
                 // Check if this is already the active profile
-                if (activeProfile && activeProfile.toLowerCase() === profileName.toLowerCase()) {
+                if (activeProfileName && activeProfileName.toLowerCase() === profileName.toLowerCase()) {
                     vscode.window.showInformationMessage(`"${profileName}" is already the active profile.`);
                     return;
                 }
@@ -286,7 +319,7 @@ function activate(context) {
                     cancellable: false
                 }, async () => {
                     // Save the profile name before switching
-                    await context.globalState.update(ACTIVE_PROFILE_KEY, profileName);
+                    setActiveProfile(profileName);
 
                     const result = await runProfileManager('Load', profileName);
                     if (!result.success) {
@@ -342,7 +375,9 @@ function activate(context) {
         }, async () => {
             const result = await runProfileManager('Save', profileName);
             if (result.success) {
-                vscode.window.showInformationMessage(`Profile "${profileName}" saved successfully!`);
+                // Mark this profile as active (user is currently logged into this account)
+                setActiveProfile(profileName);
+                vscode.window.showInformationMessage(`Profile "${profileName}" saved and set as active!`);
                 updateProfileButtons();
             } else {
                 vscode.window.showErrorMessage(`Failed to save profile: ${result.error}`);
@@ -443,6 +478,33 @@ function activate(context) {
         vscode.window.showInformationMessage(`Saved Profiles:\n${profileList}`);
     });
     context.subscriptions.push(listCmd);
+
+    // Command: Set Active Profile (without switching)
+    const setActiveCmd = vscode.commands.registerCommand('antigravity-switcher.setActiveProfile', async () => {
+        const profiles = await getProfiles();
+
+        if (profiles.length === 0) {
+            vscode.window.showInformationMessage('No profiles saved yet.');
+            return;
+        }
+
+        const items = profiles.map((p, i) => ({
+            label: `$(account) ${p.Name || p.name}`,
+            description: `Slot ${i + 1}`,
+            profileName: p.Name || p.name
+        }));
+
+        const selected = await vscode.window.showQuickPick(items, {
+            placeHolder: 'Select which profile is currently active (no restart)'
+        });
+
+        if (!selected) return;
+
+        setActiveProfile(selected.profileName);
+        vscode.window.showInformationMessage(`"${selected.profileName}" is now marked as the active profile.`);
+        updateProfileButtons();
+    });
+    context.subscriptions.push(setActiveCmd);
 
     // Initial update
     updateProfileButtons();
