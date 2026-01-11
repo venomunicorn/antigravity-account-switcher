@@ -16,7 +16,7 @@ const fs = require('fs');
  * @param {vscode.ExtensionContext} context
  */
 function activate(context) {
-    console.log('Antigravity Account Switcher v2.1.3 is now active');
+    console.log('Antigravity Account Switcher v2.2.0 is now active');
 
     const scriptPath = path.join(context.extensionPath, 'scripts', 'profile_manager.ps1');
     const NUM_SLOTS = 5;
@@ -52,6 +52,62 @@ function activate(context) {
         } catch (e) {
             console.error('Error saving active profile:', e);
             return false;
+        }
+    }
+
+    // File to store pending workspace restoration (shared across profiles)
+    const PENDING_WORKSPACE_FILE = path.join(process.env.APPDATA || '', 'Antigravity', 'pending_workspace.txt');
+
+    /**
+     * Save current workspace path for restoration after profile switch
+     */
+    function savePendingWorkspace() {
+        try {
+            const workspaceFolders = vscode.workspace.workspaceFolders;
+            if (workspaceFolders && workspaceFolders.length > 0) {
+                const workspacePath = workspaceFolders[0].uri.fsPath;
+                const dir = path.dirname(PENDING_WORKSPACE_FILE);
+                if (!fs.existsSync(dir)) {
+                    fs.mkdirSync(dir, { recursive: true });
+                }
+                fs.writeFileSync(PENDING_WORKSPACE_FILE, workspacePath, 'utf8');
+                console.log('Saved workspace for restoration:', workspacePath);
+                return true;
+            }
+        } catch (e) {
+            console.error('Error saving pending workspace:', e);
+        }
+        return false;
+    }
+
+    /**
+     * Get and clear pending workspace path
+     */
+    function getPendingWorkspace() {
+        try {
+            if (fs.existsSync(PENDING_WORKSPACE_FILE)) {
+                const workspacePath = fs.readFileSync(PENDING_WORKSPACE_FILE, 'utf8').trim();
+                // Clear the file after reading
+                fs.unlinkSync(PENDING_WORKSPACE_FILE);
+                return workspacePath;
+            }
+        } catch (e) {
+            console.error('Error reading pending workspace:', e);
+        }
+        return null;
+    }
+
+    // ============================================
+    // WORKSPACE RESTORATION ON STARTUP
+    // ============================================
+    const pendingWorkspace = getPendingWorkspace();
+    if (pendingWorkspace && fs.existsSync(pendingWorkspace)) {
+        // Check if we're already in the correct workspace
+        const currentWorkspace = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        if (currentWorkspace !== pendingWorkspace) {
+            console.log('Restoring workspace:', pendingWorkspace);
+            vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(pendingWorkspace), false);
+            vscode.window.showInformationMessage(`Restored workspace: ${path.basename(pendingWorkspace)}`);
         }
     }
 
@@ -318,7 +374,8 @@ function activate(context) {
                     title: `Switching to "${profileName}"...`,
                     cancellable: false
                 }, async () => {
-                    // Save the profile name before switching
+                    // Save the current workspace and profile name before switching
+                    savePendingWorkspace();
                     setActiveProfile(profileName);
 
                     const result = await runProfileManager('Load', profileName);
@@ -457,6 +514,9 @@ function activate(context) {
             title: `Switching to "${selected.profileName}"...`,
             cancellable: false
         }, async () => {
+            // Save current workspace before switching
+            savePendingWorkspace();
+            setActiveProfile(selected.profileName);
             const result = await runProfileManager('Load', selected.profileName);
             if (!result.success) {
                 vscode.window.showErrorMessage(`Failed to switch: ${result.error}`);

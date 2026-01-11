@@ -2,8 +2,13 @@
   "name": "antigravity-account-switcher",
   "displayName": "Antigravity Account Switcher",
   "description": "Switch between multiple Google accounts in Antigravity to bypass model rate limits",
-  "version": "2.1.3",
-  "publisher": "local",
+  "version": "2.2.0",
+  "publisher": "venomchampion",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/venomunicorn/antigravity-account-switcher"
+  },
   "engines": {
     "vscode": "^1.85.0"
   },
