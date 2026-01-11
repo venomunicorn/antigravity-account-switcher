@@ -16,7 +16,7 @@ const fs = require('fs');
  * @param {vscode.ExtensionContext} context
  */
 function activate(context) {
-    console.log('Antigravity Account Switcher v2.2.0 is now active');
+    console.log('Antigravity Account Switcher v2.3.0 is now active - Full workspace state persistence');
 
     const scriptPath = path.join(context.extensionPath, 'scripts', 'profile_manager.ps1');
     const NUM_SLOTS = 5;
@@ -55,59 +55,183 @@ function activate(context) {
         }
     }
 
-    // File to store pending workspace restoration (shared across profiles)
-    const PENDING_WORKSPACE_FILE = path.join(process.env.APPDATA || '', 'Antigravity', 'pending_workspace.txt');
+    // File to store full workspace state for restoration (shared across profiles)
+    const PENDING_STATE_FILE = path.join(process.env.APPDATA || '', 'Antigravity', 'pending_state.json');
 
     /**
-     * Save current workspace path for restoration after profile switch
+     * Save full workspace state (folders, editors, layout) for restoration after profile switch
      */
-    function savePendingWorkspace() {
+    function saveFullWorkspaceState() {
         try {
+            const state = {
+                version: 1,
+                timestamp: new Date().toISOString(),
+                workspaceFolders: [],
+                openEditors: [],
+                activeEditorUri: null
+            };
+
+            // Save all workspace folders
             const workspaceFolders = vscode.workspace.workspaceFolders;
             if (workspaceFolders && workspaceFolders.length > 0) {
-                const workspacePath = workspaceFolders[0].uri.fsPath;
-                const dir = path.dirname(PENDING_WORKSPACE_FILE);
-                if (!fs.existsSync(dir)) {
-                    fs.mkdirSync(dir, { recursive: true });
-                }
-                fs.writeFileSync(PENDING_WORKSPACE_FILE, workspacePath, 'utf8');
-                console.log('Saved workspace for restoration:', workspacePath);
-                return true;
+                state.workspaceFolders = workspaceFolders.map(f => f.uri.fsPath);
             }
+
+            // Save all open editors using tabGroups API (VS Code 1.67+)
+            if (vscode.window.tabGroups) {
+                const tabGroups = vscode.window.tabGroups;
+                for (const group of tabGroups.all) {
+                    for (const tab of group.tabs) {
+                        if (tab.input && tab.input.uri) {
+                            state.openEditors.push({
+                                uri: tab.input.uri.toString(),
+                                viewColumn: group.viewColumn || 1,
+                                isActive: tabGroups.activeTabGroup === group && group.activeTab === tab
+                            });
+                        }
+                    }
+                }
+                // Track active editor
+                const activeEditor = vscode.window.activeTextEditor;
+                if (activeEditor) {
+                    state.activeEditorUri = activeEditor.document.uri.toString();
+                }
+            }
+
+            // Write state to file
+            const dir = path.dirname(PENDING_STATE_FILE);
+            if (!fs.existsSync(dir)) {
+                fs.mkdirSync(dir, { recursive: true });
+            }
+            fs.writeFileSync(PENDING_STATE_FILE, JSON.stringify(state, null, 2), 'utf8');
+            console.log('Saved full workspace state:', state.workspaceFolders.length, 'folders,', state.openEditors.length, 'editors');
+            return true;
         } catch (e) {
-            console.error('Error saving pending workspace:', e);
+            console.error('Error saving workspace state:', e);
         }
         return false;
     }
 
     /**
-     * Get and clear pending workspace path
+     * Get and clear pending workspace state
      */
-    function getPendingWorkspace() {
+    function getPendingWorkspaceState() {
         try {
-            if (fs.existsSync(PENDING_WORKSPACE_FILE)) {
-                const workspacePath = fs.readFileSync(PENDING_WORKSPACE_FILE, 'utf8').trim();
+            if (fs.existsSync(PENDING_STATE_FILE)) {
+                const stateJson = fs.readFileSync(PENDING_STATE_FILE, 'utf8');
+                const state = JSON.parse(stateJson);
                 // Clear the file after reading
-                fs.unlinkSync(PENDING_WORKSPACE_FILE);
-                return workspacePath;
+                fs.unlinkSync(PENDING_STATE_FILE);
+                return state;
             }
         } catch (e) {
-            console.error('Error reading pending workspace:', e);
+            console.error('Error reading pending state:', e);
         }
         return null;
     }
 
+    /**
+     * Restore all editors from saved state
+     */
+    async function restoreEditors(state) {
+        if (!state || !state.openEditors || state.openEditors.length === 0) {
+            return;
+        }
+
+        console.log('Restoring', state.openEditors.length, 'editors...');
+
+        // Group editors by viewColumn
+        const editorsByColumn = {};
+        for (const editor of state.openEditors) {
+            const col = editor.viewColumn || 1;
+            if (!editorsByColumn[col]) {
+                editorsByColumn[col] = [];
+            }
+            editorsByColumn[col].push(editor);
+        }
+
+        // Open editors in each column
+        for (const [column, editors] of Object.entries(editorsByColumn)) {
+            for (const editor of editors) {
+                try {
+                    const uri = vscode.Uri.parse(editor.uri);
+                    if (fs.existsSync(uri.fsPath)) {
+                        await vscode.window.showTextDocument(uri, {
+                            viewColumn: parseInt(column),
+                            preview: false,
+                            preserveFocus: !editor.isActive
+                        });
+                    }
+                } catch (e) {
+                    console.log('Could not restore editor:', editor.uri, e.message);
+                }
+            }
+        }
+
+        // Focus the active editor if specified
+        if (state.activeEditorUri) {
+            try {
+                const uri = vscode.Uri.parse(state.activeEditorUri);
+                if (fs.existsSync(uri.fsPath)) {
+                    await vscode.window.showTextDocument(uri, { preview: false });
+                }
+            } catch (e) {
+                console.log('Could not focus active editor:', e.message);
+            }
+        }
+    }
+
     // ============================================
-    // WORKSPACE RESTORATION ON STARTUP
+    // FULL WORKSPACE RESTORATION ON STARTUP
     // ============================================
-    const pendingWorkspace = getPendingWorkspace();
-    if (pendingWorkspace && fs.existsSync(pendingWorkspace)) {
-        // Check if we're already in the correct workspace
-        const currentWorkspace = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-        if (currentWorkspace !== pendingWorkspace) {
-            console.log('Restoring workspace:', pendingWorkspace);
-            vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(pendingWorkspace), false);
-            vscode.window.showInformationMessage(`Restored workspace: ${path.basename(pendingWorkspace)}`);
+    const pendingState = getPendingWorkspaceState();
+    if (pendingState) {
+        // Restore workspace folders first
+        if (pendingState.workspaceFolders && pendingState.workspaceFolders.length > 0) {
+            const firstFolder = pendingState.workspaceFolders[0];
+            const currentWorkspace = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+
+            if (currentWorkspace !== firstFolder && fs.existsSync(firstFolder)) {
+                console.log('Restoring workspace folders...');
+
+                // If multiple folders, we need to handle multi-root workspace
+                if (pendingState.workspaceFolders.length > 1) {
+                    // Add all folders as multi-root workspace
+                    const foldersToAdd = pendingState.workspaceFolders
+                        .filter(f => fs.existsSync(f))
+                        .map(f => ({ uri: vscode.Uri.file(f) }));
+
+                    if (foldersToAdd.length > 0) {
+                        // Open first folder, then add the rest
+                        vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(firstFolder), false).then(() => {
+                            // Schedule adding remaining folders and editor restoration
+                            setTimeout(() => {
+                                if (foldersToAdd.length > 1) {
+                                    vscode.workspace.updateWorkspaceFolders(1, 0, ...foldersToAdd.slice(1));
+                                }
+                                // Restore editors after folders are set up
+                                restoreEditors(pendingState);
+                            }, 2000);
+                        });
+
+                        vscode.window.showInformationMessage(
+                            `Restored ${foldersToAdd.length} workspace folders and ${pendingState.openEditors?.length || 0} editors`
+                        );
+                    }
+                } else {
+                    // Single folder - just open it and restore editors
+                    vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(firstFolder), false).then(() => {
+                        setTimeout(() => restoreEditors(pendingState), 2000);
+                    });
+                    vscode.window.showInformationMessage(`Restored workspace: ${path.basename(firstFolder)}`);
+                }
+            } else if (currentWorkspace === firstFolder) {
+                // Already in correct workspace, just restore editors
+                restoreEditors(pendingState);
+            }
+        } else if (pendingState.openEditors && pendingState.openEditors.length > 0) {
+            // No workspace folders but have editors - just restore them
+            restoreEditors(pendingState);
         }
     }
 
@@ -374,8 +498,8 @@ function activate(context) {
                     title: `Switching to "${profileName}"...`,
                     cancellable: false
                 }, async () => {
-                    // Save the current workspace and profile name before switching
-                    savePendingWorkspace();
+                    // Save the full workspace state (all folders, editors) before switching
+                    saveFullWorkspaceState();
                     setActiveProfile(profileName);
 
                     const result = await runProfileManager('Load', profileName);
@@ -514,8 +638,8 @@ function activate(context) {
             title: `Switching to "${selected.profileName}"...`,
             cancellable: false
         }, async () => {
-            // Save current workspace before switching
-            savePendingWorkspace();
+            // Save full workspace state (all folders, editors) before switching
+            saveFullWorkspaceState();
             setActiveProfile(selected.profileName);
             const result = await runProfileManager('Load', selected.profileName);
             if (!result.success) {
