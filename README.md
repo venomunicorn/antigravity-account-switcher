@@ -2,7 +2,7 @@
 
 **Version 2.0.0** - Final Release
 
-Seamlessly switch between multiple Google accounts in Antigravity to bypass model rate limits without manual re-login.
+Seamlessly switch between multiple Google accounts in Antigravity.
 
 ## Features
 
@@ -15,11 +15,6 @@ Seamlessly switch between multiple Google accounts in Antigravity to bypass mode
 - **Save button (+)** - Save your current session as a new profile
 - **Delete button (🗑️)** - Remove unwanted profiles
 - Profiles are stored in `%APPDATA%\Antigravity\Profiles`
-
-### ⚠️ Rate Limit Detection
-- Automatically monitors for rate limit errors (supports Gemini and Claude)
-- When detected, prompts you to switch to another account
-- 1-minute cooldown between alerts to avoid spam
 
 ---
 
@@ -57,7 +52,6 @@ Seamlessly switch between multiple Google accounts in Antigravity to bypass mode
 
 1. **Save a Profile**: Log into a Google account in Antigravity, then click the **+** button and enter a name
 2. **Switch Profiles**: Click any colored profile button to instantly switch (Antigravity will restart)
-3. **Rate Limit Auto-Switch**: When you hit a rate limit, a prompt appears offering to switch accounts
 
 ## Commands
 
@@ -82,4 +76,4 @@ Seamlessly switch between multiple Google accounts in Antigravity to bypass mode
 
 ---
 
-Made for bypassing rate limits without the hassle of manual re-login! 🚀
+Made for quickly switching accounts without the hassle of manual re-login! 🚀
