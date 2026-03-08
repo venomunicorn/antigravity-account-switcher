@@ -1,13 +1,13 @@
 {
   "name": "antigravity-account-switcher",
-  "displayName": "Antigravity Account Switcher",
-  "description": "Switch between multiple Google accounts in Antigravity to bypass model rate limits",
-  "version": "2.3.0",
-  "publisher": "venomchampion",
+  "displayName": "Antigravity Profile Switcher",
+  "description": "Manage and switch saved local Antigravity profiles",
+  "version": "2.4.0",
+  "publisher": "sloppyadaptation",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/venomunicorn/antigravity-account-switcher"
+    "url": "https://github.com/eriktechgrounds/antigravity-account-switcher"
   },
   "engines": {
     "vscode": "^1.85.0"
@@ -47,19 +47,34 @@
       }
     ],
     "configuration": {
-      "title": "Antigravity Account Switcher",
+      "title": "Antigravity Profile Switcher",
       "properties": {
         "antigravitySwitcher.maxProfiles": {
           "type": "number",
           "default": 5,
           "minimum": 1,
-          "maximum": 10,
-          "description": "Maximum number of profiles allowed"
+          "maximum": 5,
+          "description": "Maximum number of profiles allowed. The current status bar UI supports 5 slots."
         },
         "antigravitySwitcher.profilesDirectory": {
           "type": "string",
           "default": "",
-          "description": "Custom directory to store profiles (leave empty for default)"
+          "description": "Custom directory to store profiles (leave empty for default)."
+        },
+        "antigravitySwitcher.dataDir": {
+          "type": "string",
+          "default": "",
+          "description": "Override the Antigravity data directory (optional). Useful on Linux/macOS if auto-detection misses your install."
+        },
+        "antigravitySwitcher.executablePath": {
+          "type": "string",
+          "default": "",
+          "description": "Override the Antigravity executable path (optional)."
+        },
+        "antigravitySwitcher.debugLogging": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable extra diagnostic logging for path resolution and profile operations."
         }
       }
     }

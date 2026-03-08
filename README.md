@@ -1,79 +1,73 @@
-# Antigravity Multi-Account Switcher
+# Antigravity Profile Switcher
 
-**Version 2.0.0** - Final Release
+Antigravity Profile Switcher lets you save, switch, list, and delete local Antigravity profiles. 
 
-Seamlessly switch between multiple Google accounts in Antigravity.
+Each profile is a snapshot of Antigravity’s local user data, so you can move between saved sessions without manually reconfiguring the app each time. Adapted primarily for Linux through the use of Node.js (though it can run on Windows and macOS as well), with @sloppy_adaptation's [antigravity-account-switcher](https://github.com/eriktechgrounds/antigravity-account-switcher) as a basis.
 
 ## Features
 
-### 🎨 Colorful Profile Buttons
-- **5 profile slot buttons** in the status bar with distinct colors (Blue, Green, Orange, Purple, Pink)
-- **One-click switching** - no confirmation dialogs
-- Empty slots are grayed out with slot numbers
+- Save the current local session as a named profile
+- Switch between up to 5 profiles from the status bar
+- Delete saved profiles
+- Mark a profile as active without restarting
+- Restore workspace folders and open editors after a profile switch
+- Optional path overrides for custom Antigravity installs on Linux and macOS
 
-### ➕ Easy Profile Management
-- **Save button (+)** - Save your current session as a new profile
-- **Delete button (🗑️)** - Remove unwanted profiles
-- Profiles are stored in `%APPDATA%\Antigravity\Profiles`
+## Rate Limits & Token Distribution
 
----
+This extension was designed with Antigravity API rate limits in mind. To ensure uninterrupted workflows, **Antigravity Profile Switcher** enables rapid switching between accounts.
 
-## Installation Instructions
+## Installation
 
-### Method 1: Install from VSIX (Recommended)
+You can install this extension locally using the generated `.vsix` file.
 
-1. **Download** the `antigravity-account-switcher-2.0.0.vsix` file
-2. **Open Antigravity**
-3. Press `Ctrl+Shift+P` to open Command Palette
-4. Type: `Extensions: Install from VSIX...`
-5. Select the downloaded `.vsix` file
-6. Click **Reload** when prompted (or press `Ctrl+Shift+P` → `Developer: Reload Window`)
-
-### Method 2: Command Line Install
-
-```powershell
-# Run this in PowerShell or Command Prompt
-& "$env:LOCALAPPDATA\Programs\Antigravity\bin\antigravity.cmd" --install-extension "path\to\antigravity-account-switcher-2.0.0.vsix"
-```
-
-### Method 3: Manual Install (Copy Files)
-
-1. Navigate to: `%USERPROFILE%\.vscode\extensions\` (or `%USERPROFILE%\.antigravity\extensions\`)
-2. Create folder: `antigravity-account-switcher-2.0.0`
-3. Copy these files into it:
-   - `extension.js`
-   - `package.json`
-   - `scripts\profile_manager.ps1`
-4. Restart Antigravity
-
----
-
-## How It Works
-
-1. **Save a Profile**: Log into a Google account in Antigravity, then click the **+** button and enter a name
-2. **Switch Profiles**: Click any colored profile button to instantly switch (Antigravity will restart)
+1. Download or generate the `.vsix` package of this extension (e.g., using `npx @vscode/vsce package`).
+2. Open **Visual Studio Code**.
+3. Open the **Extensions** view (`Ctrl+Shift+X` on Windows/Linux or `Cmd+Shift+X` on macOS).
+4. Click on the `...` (Views and More Actions) icon in the top right corner of the Extensions view.
+5. Select **Install from VSIX...** from the dropdown menu.
+6. Select the `.vsix` file from your machine.
+7. Restart VS Code if prompted.
 
 ## Commands
 
-| Command | Description |
-|---------|-------------|
-| `Antigravity: Save Current Profile` | Save current session |
-| `Antigravity: Switch Profile` | Switch via picker |
-| `Antigravity: Delete Profile` | Delete a profile |
-| `Antigravity: List Profiles` | Show saved profiles |
+The extension contributes the following commands:
 
-## Requirements
+- `Antigravity: Save Current Profile`
+- `Antigravity: Switch Profile`
+- `Antigravity: Delete Profile`
+- `Antigravity: List Profiles`
+- `Antigravity: Set Active Profile (No Restart)`
 
-- Windows 10/11
-- Antigravity IDE
-- PowerShell (included with Windows)
+## Settings
 
-## Notes
+The extension uses the `antigravitySwitcher` settings namespace.
 
-- Profile switching **restarts Antigravity** to apply changes
-- Each profile stores the complete authentication state
-- Maximum 5 profiles supported
+### Available settings
 
----
+- `antigravitySwitcher.maxProfiles`  
+  Maximum number of saved profiles. The current UI supports 5 slots.
 
-Made for quickly switching accounts without the hassle of manual re-login! 🚀
+- `antigravitySwitcher.profilesDirectory`  
+  Optional custom directory for stored profiles.
+
+- `antigravitySwitcher.dataDir`  
+  Optional override for the Antigravity data directory.
+
+- `antigravitySwitcher.executablePath`  
+  Optional override for the Antigravity executable path.
+
+- `antigravitySwitcher.debugLogging`  
+  Enables extra backend logging.
+
+### Example settings
+
+```json
+{
+  "antigravitySwitcher.maxProfiles": 5,
+  "antigravitySwitcher.profilesDirectory": "",
+  "antigravitySwitcher.dataDir": "",
+  "antigravitySwitcher.executablePath": "",
+  "antigravitySwitcher.debugLogging": false
+}
+```
